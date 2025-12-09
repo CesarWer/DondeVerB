@@ -13,6 +13,12 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
 # ALLOWED_HOSTS: comma-separated list in env, e.g. "myapp.onrender.com,example.com"
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
+# Ensure common hosts are allowed in development and Render domain is allowed by default
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'dondever.onrender.com']
+else:
+    if 'dondever.onrender.com' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('dondever.onrender.com')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -35,7 +41,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'dondever.urls'
+ROOT_URLCONF = 'dondeverapp.urls'
 
 TEMPLATES = [
     {
@@ -53,7 +59,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'dondever.wsgi.application'
+WSGI_APPLICATION = 'dondeverapp.wsgi.application'
 
 # Database configuration: prefer DATABASE_URL (Postgres on Supabase), fallback to sqlite for local dev
 DATABASE_URL = os.environ.get('DATABASE_URL')
