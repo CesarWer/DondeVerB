@@ -1,6 +1,13 @@
 import os
 from pathlib import Path
-#import dj_database_url
+
+# dj-database-url is optional in local dev (sqlite fallback). If DATABASE_URL
+# is set in the environment we require the package to be installed; guard the
+# import so the error is explicit instead of NameError later.
+try:
+    import dj_database_url
+except Exception:
+    dj_database_url = None
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,6 +71,8 @@ WSGI_APPLICATION = 'dondeverapp.wsgi.application'
 # Database configuration: prefer DATABASE_URL (Postgres on Supabase), fallback to sqlite for local dev
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
+    if not dj_database_url:
+        raise RuntimeError("DATABASE_URL is set but the 'dj-database-url' package is not installed. Add 'dj-database-url' to requirements.txt and reinstall dependencies.")
     parsed_db = dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     # Ensure SSL is used for Supabase/Postgres in production
     parsed_db.setdefault('OPTIONS', {})
