@@ -1,0 +1,148 @@
+{% extends 'catalog/base.html' %}
+
+{% block title %}{{ platform.name }}{% endblock %}
+
+{% block content %}
+  <div class="library-layout">
+    <aside class="sidebar">
+      <form method="get" id="filters-form">
+        <div class="filter-block">
+          <label for="q">Buscar</label>
+          <input type="search" name="q" id="q" placeholder="Buscar título..." value="{{ q }}" />
+        </div>
+
+        <div class="filter-block">
+          <h4>Géneros</h4>
+          {% include "catalog/_genres_list.html" %}
+        </div>
+
+        <div class="filter-block">
+          <h4>Tipo</h4>
+          <label><input type="checkbox" name="type" value="movie" {% if 'movie' in selected_types %}checked{% endif %}/> Película</label><br/>
+          <label><input type="checkbox" name="type" value="series" {% if 'series' in selected_types %}checked{% endif %}/> Serie</label>
+        </div>
+
+        <div class="filter-block">
+          <h4>Ordenar</h4>
+          <select name="sort">
+            <option value="pop_desc" {% if sort == 'pop_desc' %}selected{% endif %}>Popularidad (desc)</option>
+            <option value="pop_asc" {% if sort == 'pop_asc' %}selected{% endif %}>Popularidad (asc)</option>
+            <option value="title_asc" {% if sort == 'title_asc' %}selected{% endif %}>Título A→Z</option>
+            <option value="title_desc" {% if sort == 'title_desc' %}selected{% endif %}>Título Z→A</option>
+          </select>
+        </div>
+
+        <input type="hidden" name="page_size" id="id_page_size" value="{{ page_size }}" />
+
+        <div class="filter-actions">
+          <button type="button" class="page-size-btn{% if page_size == 25 %} active{% endif %}" data-size="25">25</button>
+          <button type="button" class="page-size-btn{% if page_size == 50 %} active{% endif %}" data-size="50">50</button>
+          <button type="button" class="page-size-btn{% if page_size == 100 %} active{% endif %}" data-size="100">100</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <button type="submit">Aplicar filtros</button>
+        </div>
+      </form>
+    </aside>
+
+    <section class="content-area">
+      <div class="platform-selector">
+        <form id="platforms-form">
+          {% for p in supported_platforms %}
+            <label class="platform-chip" title="{{ p.name }}">
+              <input type="checkbox" name="platforms" value="{{ p.slug }}" {% if p.slug in selected_platforms %}checked{% endif %} />
+              <img src="/static/logos/{{ p.slug }}.svg" alt="{{ p.name }}" onerror="this.onerror=null;this.src='/static/logos/{{ p.slug }}.png'" />
+              <span class="platform-name">{{ p.name }}</span>
+            </label>
+          {% endfor %}
+        </form>
+      </div>
+
+      <div id="titles-fragment">
+        {% include "catalog/_titles_grid.html" %}
+      </div>
+    </section>
+      </div>
+    <script>
+      // AJAX-driven filtering and pagination
+      (function(){
+        const container = document.getElementById('titles-fragment');
+        const form = document.getElementById('filters-form');
+        if(!container || !form) return;
+
+        function buildUrl(page){
+          const params = new URLSearchParams(new FormData(form));
+          // include selected platforms from the separate platforms-form
+          const pf = document.getElementById('platforms-form');
+          if(pf){
+            const fd = new FormData(pf);
+            for(const [k,v] of fd.entries()){
+              if(k === 'platforms') params.append('platforms', v);
+            }
+          }
+          if(page) params.set('page', page);
+          return window.location.pathname + 'data?' + params.toString();
+        }
+
+        async function loadPage(page){
+          const url = buildUrl(page);
+          const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+          if(!res.ok) return;
+          // expect JSON with titles_html and genres_html
+          const data = await res.json();
+          container.innerHTML = data.titles_html;
+          // replace genres fragment
+          const genresHolder = document.querySelector('.filter-block .genres-list');
+          if(genresHolder && data.genres_html){
+            genresHolder.innerHTML = data.genres_html;
+          }
+          attachPaginationLinks();
+        }
+
+        function attachPaginationLinks(){
+          container.querySelectorAll('.ajax-page').forEach(a=>{
+            a.addEventListener('click', (e)=>{
+              const p = e.currentTarget.getAttribute('data-page');
+              loadPage(p);
+            });
+          });
+        }
+
+        // submit filters via JS
+        form.addEventListener('change', ()=> loadPage(1));
+
+        // platform selection changes should also trigger reload
+        const pf = document.getElementById('platforms-form');
+        if(pf){
+          pf.addEventListener('change', ()=> loadPage(1));
+        }
+
+        // When the filters form is submitted normally, copy selected platforms into it so the GET includes them
+        form.addEventListener('submit', (ev)=>{
+          // remove previous hidden platform inputs
+          form.querySelectorAll('input[name="platforms"][data-cloned]').forEach(n=>n.remove());
+          if(pf){
+            pf.querySelectorAll('input[name="platforms"]:checked').forEach(cb=>{
+              const h = document.createElement('input');
+              h.type = 'hidden'; h.name = 'platforms'; h.value = cb.value; h.dataset.cloned = '1';
+              form.appendChild(h);
+            });
+          }
+          // allow submit to continue
+        });
+
+      document.querySelectorAll('.page-size-btn').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          // remove active class from all buttons
+          document.querySelectorAll('.page-size-btn').forEach(b=>b.classList.remove('active'));
+          // add active to clicked button
+          e.currentTarget.classList.add('active');
+          document.getElementById('id_page_size').value = e.currentTarget.dataset.size;
+          loadPage(1);
+        });
+      });        // initial attach
+        attachPaginationLinks();
+      })();
+    </script>
+{% endblock %}
